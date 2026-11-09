@@ -1,0 +1,102 @@
+<?xml version="1.0"?>
+<!-- biped_simple_v1: pelvis bar + 2 legs, 5 joints per leg; floating base added by the loader.
+     X forward, Y left, Z up; m, kg, rad, s. Parts are uniform rods (solid cylinders).
+     Build:  xacro biped_simple_v1.urdf.xacro -o biped_simple_v1.urdf -->
+<robot name="biped_simple_v1" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ===== parameters ===== -->
+  <xacro:property name="hip_width"    value="0.2"/>
+  <xacro:property name="thigh_len"    value="0.4"/>
+  <xacro:property name="shank_len"    value="0.4"/>
+  <xacro:property name="ankle_height" value="0.05"/>   <!-- ankle joint above the sole -->
+  <xacro:property name="heel"         value="0.05"/>   <!-- sole behind the ankle -->
+  <xacro:property name="toe"          value="0.15"/>   <!-- sole in front of the ankle -->
+  <xacro:property name="r"            value="0.025"/>  <!-- rod radius -->
+  <xacro:property name="m_pelvis" value="8"/>
+  <xacro:property name="m_thigh"  value="4"/>
+  <xacro:property name="m_shank"  value="3"/>
+  <xacro:property name="m_foot"   value="1"/>
+  <xacro:property name="foot_len" value="${heel + toe}"/>
+  <xacro:property name="half_pi"  value="${pi / 2}"/>
+
+  <!-- ===== helpers ===== -->
+  <!-- inertia of a uniform rod of mass m, length L, radius r; axis = x, y or z -->
+  <xacro:macro name="rod_inertia" params="m L axis">
+    <xacro:property name="Ia" value="${m * r**2 / 2}"/>
+    <xacro:property name="It" value="${m * (3 * r**2 + L**2) / 12}"/>
+    <inertia ixx="${Ia if axis == 'x' else It}" iyy="${Ia if axis == 'y' else It}"
+             izz="${Ia if axis == 'z' else It}" ixy="0" ixz="0" iyz="0"/>
+  </xacro:macro>
+
+  <!-- link that only stacks two joint axes at one point (1 g so every simulator accepts it) -->
+  <xacro:macro name="joint_link" params="name">
+    <link name="${name}">
+      <inertial><mass value="0.001"/><inertia ixx="1e-7" iyy="1e-7" izz="1e-7" ixy="0" ixz="0" iyz="0"/></inertial>
+    </link>
+  </xacro:macro>
+
+  <xacro:macro name="revolute" params="name parent child axis lower upper xyz:='0 0 0'">
+    <joint name="${name}" type="revolute">
+      <parent link="${parent}"/><child link="${child}"/><origin xyz="${xyz}"/>
+      <axis xyz="${axis}"/><limit lower="${lower}" upper="${upper}" effort="150" velocity="8"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- one leg; y = hip position along Y -->
+  <xacro:macro name="leg" params="side y">
+    <xacro:joint_link name="${side}_hip_roll_link"/>
+
+    <link name="${side}_thigh">
+      <inertial><origin xyz="0 0 ${-thigh_len / 2}"/><mass value="${m_thigh}"/>
+        <xacro:rod_inertia m="${m_thigh}" L="${thigh_len}" axis="z"/></inertial>
+      <collision><origin xyz="0 0 ${-thigh_len / 2}"/>
+        <geometry><cylinder radius="${r}" length="${thigh_len}"/></geometry></collision>
+    </link>
+
+    <link name="${side}_shank">
+      <inertial><origin xyz="0 0 ${-shank_len / 2}"/><mass value="${m_shank}"/>
+        <xacro:rod_inertia m="${m_shank}" L="${shank_len}" axis="z"/></inertial>
+      <collision><origin xyz="0 0 ${-shank_len / 2}"/>
+        <geometry><cylinder radius="${r}" length="${shank_len}"/></geometry></collision>
+    </link>
+
+    <xacro:joint_link name="${side}_ankle_pitch_link"/>
+
+    <link name="${side}_foot">
+      <inertial><origin xyz="${(toe - heel) / 2} 0 ${-ankle_height}"/><mass value="${m_foot}"/>
+        <xacro:rod_inertia m="${m_foot}" L="${foot_len}" axis="x"/></inertial>
+      <collision><origin xyz="${(toe - heel) / 2} 0 ${-ankle_height}" rpy="0 ${half_pi} 0"/>
+        <geometry><cylinder radius="${r}" length="${foot_len}"/></geometry></collision>
+    </link>
+    <link name="${side}_heel"/>
+    <link name="${side}_toe"/>
+
+    <xacro:revolute name="${side}_hip_roll_joint" parent="pelvis" child="${side}_hip_roll_link"
+                    xyz="0 ${y} 0" axis="1 0 0" lower="-0.5" upper="0.5"/>
+    <xacro:revolute name="${side}_hip_pitch_joint" parent="${side}_hip_roll_link" child="${side}_thigh"
+                    axis="0 1 0" lower="-1.5" upper="1.2"/>
+    <xacro:revolute name="${side}_knee_joint" parent="${side}_thigh" child="${side}_shank"
+                    xyz="0 0 ${-thigh_len}" axis="0 1 0" lower="-0.1" upper="2.5"/>
+    <xacro:revolute name="${side}_ankle_pitch_joint" parent="${side}_shank" child="${side}_ankle_pitch_link"
+                    xyz="0 0 ${-shank_len}" axis="0 1 0" lower="-1.0" upper="0.8"/>
+    <xacro:revolute name="${side}_ankle_roll_joint" parent="${side}_ankle_pitch_link" child="${side}_foot"
+                    axis="1 0 0" lower="-0.5" upper="0.5"/>
+
+    <joint name="${side}_heel_joint" type="fixed">
+      <parent link="${side}_foot"/><child link="${side}_heel"/><origin xyz="${-heel} 0 ${-ankle_height}"/></joint>
+    <joint name="${side}_toe_joint" type="fixed">
+      <parent link="${side}_foot"/><child link="${side}_toe"/><origin xyz="${toe} 0 ${-ankle_height}"/></joint>
+  </xacro:macro>
+
+  <!-- ===== robot ===== -->
+  <link name="pelvis">
+    <inertial><mass value="${m_pelvis}"/>
+      <xacro:rod_inertia m="${m_pelvis}" L="${hip_width}" axis="y"/></inertial>
+    <collision><origin rpy="${half_pi} 0 0"/>
+      <geometry><cylinder radius="${r}" length="${hip_width}"/></geometry></collision>
+  </link>
+
+  <xacro:leg side="left"  y="${hip_width / 2}"/>
+  <xacro:leg side="right" y="${-hip_width / 2}"/>
+
+</robot>

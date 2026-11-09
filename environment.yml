@@ -1,0 +1,21 @@
+# Biped simulator -- conda environment
+#
+#   Create:    conda env create -f environment.yml
+#   Activate:  conda activate bipedal_env
+#   Update:    conda env update -f environment.yml --prune     (after this file changes)
+#   Check:     python check_env.py
+#   Remove:    conda env remove -n bipedal_env
+#
+# Uses conda-forge only, so the same versions install on Windows, macOS and Linux.
+
+name: bipedal_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy>=1.24,<3
+  - matplotlib>=3.7
+  - pip
+  # --- planned for later steps (uncomment, then run the "Update" command above) ---
+  # - scipy>=1.10        # optional: ODE solvers, QP for rigid contact (Step 10)
+  # - pinocchio>=2.7     # optional: cross-check M, C, G against a reference library

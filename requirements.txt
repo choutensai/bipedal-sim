@@ -1,0 +1,13 @@
+# Biped simulator -- Python dependencies (pip)
+#
+#   Install:   pip install -r requirements.txt
+#   Check:     python check_env.py
+#
+# Python 3.10 or newer.  Tested with Python 3.13, numpy 2.5, matplotlib 3.11.
+
+numpy>=1.24,<3          # all math: kinematics, Jacobians, mass matrix, solving M qdd = rhs
+matplotlib>=3.7         # plots (step1_fk_plot.py, later: simulation plots / animation)
+
+# --- planned for later steps (uncomment when needed) ---
+# scipy>=1.10           # optional: RK4 / ODE solvers, QP for rigid contact (Step 10)
+# pin>=2.7              # optional: Pinocchio, to cross-check M, C, G (pip name is "pin")
